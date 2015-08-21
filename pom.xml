@@ -1,12 +1,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>net.i2p.crypto</groupId>
+	<groupId>de.ntcomputer.crypto</groupId>
 	<artifactId>eddsa</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>ed25519-java</name>
-	<description>Implementation of EdDSA in Java</description>
-	<url>https://github.com/str4d/ed25519-java</url>
+	<description>Implementation of EdDSA in Java including simplified access interfaces</description>
+	<url>https://github.com/DevCybran/ed25519-java</url>
 	<licenses>
 		<license>
 			<name>Public Domain</name>
@@ -22,9 +22,9 @@
 		</developer>
 	</developers>
 	<scm>
-		<connection>scm:git:git://github.com/str4d/ed25519-java.git</connection>
-		<developerConnection>scm:git:git@github.com:str4d/ed25519-java.git</developerConnection>
-		<url>https://github.com/str4d/ed25519-java</url>
+		<connection>scm:git:git://github.com/DevCybran/ed25519-java.git</connection>
+		<developerConnection>scm:git:git@github.com/DevCybran/ed25519-java.git</developerConnection>
+		<url>https://github.com/DevCybran/ed25519-java</url>
 	</scm>
 	<build>
 		<sourceDirectory>src</sourceDirectory>
