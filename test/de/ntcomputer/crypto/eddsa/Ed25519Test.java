@@ -37,7 +37,7 @@ public class Ed25519Test {
         	boolean verifyResult = publicKey.verify(testSignDataFile, signature);
     		assertThat("Ed25519 signature verification failure", verifyResult, is(true));
     		
-    		String password = new BigInteger(130, random).toString(32);
+    		char[] password = new BigInteger(130, random).toString(32).toCharArray();
     		privateKey.saveAsFile(privateKeyFile, password);
     		privateKey = Ed25519PrivateKey.loadFromFile(privateKeyFile, password);
     		

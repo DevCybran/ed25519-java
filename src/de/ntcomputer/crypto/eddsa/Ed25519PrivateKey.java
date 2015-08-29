@@ -51,10 +51,10 @@ public class Ed25519PrivateKey {
 		}
 	}
 	
-	private static SecretKey deriveKey(byte[] salt, String password) throws IllegalArgumentException, NoSuchAlgorithmException {
+	private static SecretKey deriveKey(byte[] salt, char[] password) throws IllegalArgumentException, NoSuchAlgorithmException {
 		if(password==null) throw new IllegalArgumentException("password must not be null");
 		SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA512");
-		KeySpec ks = new PBEKeySpec(password.toCharArray(),salt,1000000,256);
+		KeySpec ks = new PBEKeySpec(password, salt, 1000000, 256);
 		try {
 			SecretKey key = skf.generateSecret(ks);
 			return new SecretKeySpec(key.getEncoded(), "AES");
@@ -68,12 +68,12 @@ public class Ed25519PrivateKey {
 		return md.digest(data);
 	}
 	
-	public static Ed25519PrivateKey loadFromFile(File privateKeyFile, String password) throws IllegalArgumentException, IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
+	public static Ed25519PrivateKey loadFromFile(File privateKeyFile, char[] password) throws IllegalArgumentException, IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
 		String key = new String(Files.readAllBytes(privateKeyFile.toPath()), StandardCharsets.UTF_8);
 		return loadFromString(key, password);
 	}
 	
-	public static Ed25519PrivateKey loadFromString(String privateKeyString, String password) throws IllegalArgumentException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
+	public static Ed25519PrivateKey loadFromString(String privateKeyString, char[] password) throws IllegalArgumentException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
 		if(privateKeyString.length() < (512+128+256+512)/8*2) throw new InvalidKeyException("the supplied key is not a valid private key"); // salt + iv + key + hash
 		byte[] salt, iv, encryptedKey;
 		try {
@@ -119,12 +119,12 @@ public class Ed25519PrivateKey {
 		this.pubKey = pubKey;
 	}
 	
-	public void saveAsFile(File privateKeyFile, String password) throws IllegalArgumentException, IOException, NoSuchAlgorithmException, NoSuchPaddingException {
+	public void saveAsFile(File privateKeyFile, char[] password) throws IllegalArgumentException, IOException, NoSuchAlgorithmException, NoSuchPaddingException {
 		String key = this.saveAsString(password);
 		Files.write(privateKeyFile.toPath(), key.getBytes(StandardCharsets.UTF_8));
 	}
 	
-	public String saveAsString(String password) throws IllegalArgumentException, NoSuchAlgorithmException, NoSuchPaddingException {
+	public String saveAsString(char[] password) throws IllegalArgumentException, NoSuchAlgorithmException, NoSuchPaddingException {
 		byte[] salt = new byte[512/8];
 		random().nextBytes(salt);
 		SecretKey key = deriveKey(salt, password);
