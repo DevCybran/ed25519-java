@@ -26,11 +26,16 @@ public class Ed25519PublicKey {
 	}
 	
 	public static Ed25519PublicKey loadFromString(String publicKeyString) throws InvalidKeyException, NoSuchAlgorithmException {
-		if(publicKeyString.length() != (256+512)/8*2) throw new InvalidKeyException("publicKeyString has an invalid length"); // key + hash
-		byte[] publicKey = Utils.hexToBytes(publicKeyString.substring(0,256/8*2));
-		byte[] publicKeyHashStored = Utils.hexToBytes(publicKeyString.substring(256/8*2));
-		byte[] publicKeySeedHash = Ed25519PrivateKey.hash(publicKey);
-		if(Utils.equal(publicKeySeedHash, publicKeyHashStored) != 1) throw new InvalidKeyException("publicKeyString is corrupted");
+		if(publicKeyString.length() != (256+512)/8*2) throw new InvalidKeyException("the supplied key is not a valid public key"); // key + hash
+		byte[] publicKey, publicKeyHashStored, publicKeyHash;
+		try {
+			publicKey = Utils.hexToBytes(publicKeyString.substring(0,256/8*2));
+			publicKeyHashStored = Utils.hexToBytes(publicKeyString.substring(256/8*2));
+		} catch(Exception e) {
+			throw new InvalidKeyException("the supplied key is not a valid public key", e);
+		}
+		publicKeyHash = Ed25519PrivateKey.hash(publicKey);
+		if(Utils.equal(publicKeyHash, publicKeyHashStored) != 1) throw new InvalidKeyException("the supplied public key is corrupted");
 		return new Ed25519PublicKey(new EdDSAPublicKey(new EdDSAPublicKeySpec(publicKey, Ed25519PrivateKey.P_SPEC)));
 	}
 	
@@ -51,7 +56,12 @@ public class Ed25519PublicKey {
 	}
 	
 	private boolean verifyLow(byte[] data, String signature) throws SignatureException {
-		byte[] signatureBytes = Utils.hexToBytes(signature);
+		byte[] signatureBytes;
+		try {
+			signatureBytes = Utils.hexToBytes(signature);
+		} catch(Exception e) {
+			throw new SignatureException("the supplied signature is not a valid signature", e);
+		}
 		EdDSAEngine engine = new EdDSAEngine();
 		try {
 			engine.initVerify(this.key);

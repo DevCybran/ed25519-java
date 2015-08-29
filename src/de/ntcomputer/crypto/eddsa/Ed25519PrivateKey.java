@@ -73,27 +73,32 @@ public class Ed25519PrivateKey {
 	}
 	
 	public static Ed25519PrivateKey loadFromString(String privateKeyString, String password) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
-		if(privateKeyString.length() < (512+128+256+512)/8*2) throw new InvalidKeyException("privateKeyString is too short"); // salt + iv + key + hash
-		byte[] salt = Utils.hexToBytes(privateKeyString.substring(0,512/8*2));
-		byte[] iv = Utils.hexToBytes(privateKeyString.substring(512/8*2,(512+128)/8*2));
-		byte[] encryptedKey = Utils.hexToBytes(privateKeyString.substring((512+128)/8*2));
+		if(privateKeyString.length() < (512+128+256+512)/8*2) throw new InvalidKeyException("the supplied key is not a valid private key"); // salt + iv + key + hash
+		byte[] salt, iv, encryptedKey;
+		try {
+			salt = Utils.hexToBytes(privateKeyString.substring(0,512/8*2));
+			iv = Utils.hexToBytes(privateKeyString.substring(512/8*2,(512+128)/8*2));
+			encryptedKey = Utils.hexToBytes(privateKeyString.substring((512+128)/8*2));
+		} catch(Exception e) {
+			throw new InvalidKeyException("the supplied key is not a valid private key", e);
+		}
 		SecretKey key = deriveKey(salt, password);
 		try {
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
 			byte[] encodedKey = cipher.doFinal(encryptedKey);
-			if(encodedKey.length != (256+512)/8) throw new InvalidKeyException("privateKeyString is invalid");
+			if(encodedKey.length != (256+512)/8) throw new InvalidKeyException("the supplied key is not a valid private key");
 			byte[] privateKeySeed = new byte[256/8];
 			byte[] privateKeySeedHashStored = new byte[512/8];
 			System.arraycopy(encodedKey, 0, privateKeySeed, 0, 256/8);
 			System.arraycopy(encodedKey, 256/8, privateKeySeedHashStored, 0, 512/8);
 			byte[] privateKeySeedHash = hash(privateKeySeed);
-			if(Utils.equal(privateKeySeedHash, privateKeySeedHashStored) != 1) throw new InvalidKeyException("privateKeyString is corrupted or the password is wrong");
+			if(Utils.equal(privateKeySeedHash, privateKeySeedHashStored) != 1) throw new InvalidKeyException("the supplied private key is corrupted or the password is wrong");
 			return new Ed25519PrivateKey(new EdDSAPrivateKey(new EdDSAPrivateKeySpec(privateKeySeed, P_SPEC)), null);
-		} catch (InvalidKeyException | IllegalBlockSizeException | InvalidAlgorithmParameterException e) {
+		} catch (IllegalBlockSizeException | InvalidAlgorithmParameterException e) {
 			throw new RuntimeException(e);
 		} catch (BadPaddingException e) {
-			throw new InvalidKeyException("privateKeyString is corrupted or the password is wrong", e);
+			throw new InvalidKeyException("the supplied private key is corrupted or the password is wrong", e);
 		}
 	}
 	
