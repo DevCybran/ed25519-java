@@ -26,6 +26,8 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.security.auth.DestroyFailedException;
+import javax.security.auth.Destroyable;
 
 import de.ntcomputer.crypto.hash.HashCondenser;
 import net.i2p.crypto.eddsa.EdDSAEngine;
@@ -38,7 +40,7 @@ import net.i2p.crypto.eddsa.spec.EdDSAParameterSpec;
 import net.i2p.crypto.eddsa.spec.EdDSAPrivateKeySpec;
 import net.i2p.crypto.eddsa.spec.EdDSAPublicKeySpec;
 
-public class Ed25519PrivateKey {
+public class Ed25519PrivateKey implements Destroyable {
 	static final EdDSAParameterSpec P_SPEC = EdDSANamedCurveTable.getByName(EdDSANamedCurveTable.CURVE_ED25519_SHA512);
 	private static SecureRandom random = null;
 	private final EdDSAPrivateKey key;
@@ -100,6 +102,11 @@ public class Ed25519PrivateKey {
 			throw new RuntimeException(e);
 		} catch (BadPaddingException e) {
 			throw new InvalidKeyException("the supplied private key is corrupted or the password is wrong", e);
+		} finally {
+			try {
+				key.destroy();
+			} catch (DestroyFailedException e) {
+			}
 		}
 	}
 	
@@ -127,7 +134,6 @@ public class Ed25519PrivateKey {
 	public String saveAsString(char[] password) throws IllegalArgumentException, NoSuchAlgorithmException, NoSuchPaddingException {
 		byte[] salt = new byte[512/8];
 		random().nextBytes(salt);
-		SecretKey key = deriveKey(salt, password);
 		byte[] iv = new byte[128/8];
 		random().nextBytes(iv);
 		byte[] privateKeySeed = this.key.getSeed();
@@ -136,6 +142,7 @@ public class Ed25519PrivateKey {
 		byte[] encodedKey = new byte[256/8 + 512/8];
 		System.arraycopy(privateKeySeed, 0, encodedKey, 0, 256/8);
 		System.arraycopy(privateKeySeedHash, 0, encodedKey, 256/8, 512/8);
+		SecretKey key = deriveKey(salt, password);
 		try {
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
@@ -143,6 +150,11 @@ public class Ed25519PrivateKey {
 			return Utils.bytesToHex(salt) + Utils.bytesToHex(iv) + Utils.bytesToHex(encryptedKey);
 		} catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException | InvalidAlgorithmParameterException e) {
 			throw new RuntimeException(e);
+		} finally {
+			try {
+				key.destroy();
+			} catch (DestroyFailedException e) {
+			}
 		}
 	}
 	
@@ -193,6 +205,16 @@ public class Ed25519PrivateKey {
 	public void signToFile(File source, File signatureFile) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
 		String signature = this.sign(source);
 		Files.write(signatureFile.toPath(), signature.getBytes(StandardCharsets.UTF_8));
+	}
+
+	@Override
+	public void destroy() throws DestroyFailedException {
+		this.key.destroy();
+	}
+
+	@Override
+	public boolean isDestroyed() {
+		return this.key.isDestroyed();
 	}
 
 }
