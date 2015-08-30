@@ -38,7 +38,7 @@ public class HashCondenser {
 		this.outputSize = outputSize;
 		digestLength = md.getDigestLength();
 		if(digestLength==0) throw new IllegalArgumentException("could not determine message digest length (returned 0)");
-		if(this.outputSize < this.digestLength) throw new IllegalArgumentException("output size is less than message digest length");
+		if(this.outputSize < LONG_SIZE + this.digestLength) throw new IllegalArgumentException("output size is less than message digest length + overhead for one long value");
 		this.hashCount = (this.outputSize - LONG_SIZE) / digestLength;
 	}
 	
