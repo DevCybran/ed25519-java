@@ -98,7 +98,7 @@ public class HashCondenser {
 			
 			// prepare indices
 			long readSourceSize = 0;
-			long readSegmentSize = 0;
+			long previouslyReadSegmentSize = 0;
 			int readLength = 0;
 			int segmentIndex = 0;
 			int resultIndex = 0;
@@ -107,17 +107,15 @@ public class HashCondenser {
 			while((readLength = source.read(buf)) != -1) {
 				readSourceSize+= readLength;
 				if(readSourceSize > sourceSize) throw new IllegalArgumentException("read more bytes than sourceSize originally provided. Maybe the resource changed?");
-				readSegmentSize+= readLength;
+				int readIndex = 0;
 				
-				if(readSegmentSize < segmentSize) {
-					// if not enough bytes for one hash(segment) have been accumulated, just update
-					this.digest.update(buf, 0, readLength);
-				} else {
+				// if enough bytes for one hash have been accumulated then calculate the digest now
+				while(previouslyReadSegmentSize + readLength >= segmentSize) {
 					// if more bytes than needed have been accumulated, ignore them for now
-					int limit = (int) (readLength - (readSegmentSize-segmentSize));
+					int limit = (int) (segmentSize - previouslyReadSegmentSize);
 					
 					// calculate digest 
-					this.digest.update(buf, 0, limit);
+					this.digest.update(buf, readIndex, limit);
 					System.arraycopy(this.digest.digest(), 0, result, resultIndex, digestLength);
 					resultIndex+= digestLength;
 					
@@ -125,9 +123,15 @@ public class HashCondenser {
 					segmentIndex++;
 					if(segmentIndex==overflowSegmentCount) segmentSize--;
 					
-					// if more bytes than needed have been accumulated, update the next digest now
-					readSegmentSize = readLength - limit;
-					if(readSegmentSize > 0) this.digest.update(buf, limit, (int) readSegmentSize);
+					// mark the bytes as read
+					previouslyReadSegmentSize = 0;
+					readLength-= limit;
+				}
+				
+				// if not enough bytes for one hash(segment) have been accumulated, just update
+				if(readLength > 0) {
+					this.digest.update(buf, readIndex, readLength);
+					previouslyReadSegmentSize+= readLength;
 				}
 			}
 			
