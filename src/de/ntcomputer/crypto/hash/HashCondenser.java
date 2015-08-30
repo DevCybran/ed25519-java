@@ -9,6 +9,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
+/**
+ * A class which packs any byte input stream or array into a fixed-size output byte array using a {@link MessageDigest}.
+ * This is useful when there is a need to sign or verify large files with a signature scheme that requires caching the input data (such as Ed25519).
+ * The default {@link MessageDigest} is SHA-512, the default output size is 512 KiB.
+ * 
+ * @author DevCybran
+ *
+ */
 public class HashCondenser {
 	public static final int DEFAULT_OUTPUT_SIZE = 512*1024;
 	private static final int LONG_SIZE = Long.SIZE/8;
@@ -17,18 +25,47 @@ public class HashCondenser {
 	private final int digestLength;
 	private final int hashCount;
 	
-	public static HashCondenser getInstance(MessageDigest md, int outputSize) {
+	/**
+	 * Returns a new instance using the given parameters.
+	 * 
+	 * @param md a MessageDigest. Must support {@link MessageDigest#getDigestLength()}.
+	 * @param outputSize the size (in bytes) any input should be condensed to. Has to be greater than at least one digest length + 8.
+	 * @return
+	 * @throws IllegalArgumentException when the parameter conditions are not met
+	 */
+	public static HashCondenser getInstance(MessageDigest md, int outputSize) throws IllegalArgumentException {
 		return new HashCondenser(md, outputSize);
 	}
 	
-	public static HashCondenser getInstance(int outputSize) throws NoSuchAlgorithmException {
+	/**
+	 * Returns a new instance using the given output size and the SHA-512 digest.
+	 * 
+	 * @param outputSize the size (in bytes) any input should be condensed to. Has to be at least 72.
+	 * @return
+	 * @throws IllegalArgumentException when outputSize is invalid
+	 * @throws NoSuchAlgorithmException when SHA-512 is not present on this machine
+	 */
+	public static HashCondenser getInstance(int outputSize) throws IllegalArgumentException, NoSuchAlgorithmException {
 		return new HashCondenser(MessageDigest.getInstance("SHA-512"), outputSize);
 	}
 	
-	public static HashCondenser getInstance(MessageDigest md) {
+	/**
+	 * Returns a new instance using the given MessageDigest and the default output size (512 KiB).
+	 * 
+	 * @param md a MessageDigest. Must support {@link MessageDigest#getDigestLength()}.
+	 * @return
+	 * @throws IllegalArgumentException when the parameter conditions are not met
+	 */
+	public static HashCondenser getInstance(MessageDigest md) throws IllegalArgumentException{
 		return new HashCondenser(md, DEFAULT_OUTPUT_SIZE);
 	}
 	
+	/**
+	 * Returns a new instance using the default parameters (512 KiB SHA-512).
+	 * 
+	 * @return
+	 * @throws NoSuchAlgorithmException when SHA-512 is not present on this machine
+	 */
 	public static HashCondenser getInstance() throws NoSuchAlgorithmException {
 		return new HashCondenser(MessageDigest.getInstance("SHA-512"), DEFAULT_OUTPUT_SIZE);
 	}
@@ -47,7 +84,7 @@ public class HashCondenser {
 	 * 
 	 * @see #compute(InputStream, long)
 	 * @param data
-	 * @return
+	 * @return the condensed version of the input
 	 */
 	public byte[] compute(byte[] data) {
 		try {
@@ -60,12 +97,13 @@ public class HashCondenser {
 	
 	/**
 	 * Computes a condensed version of the input (source).
-	 * If sourceSize is not greater than this object's outputSize, then a 0-padded copy of the source will be returned.
+	 * If sourceSize and a specific overhead is not greater than this object's outputSize, then a 0-padded copy of the source will be returned.
 	 * Otherwise, a 0-padded concatenation of hashes for segments of the source will be returned.
+	 * Every result contains the original sourceSize and a operation mode indicator.
 	 * 
 	 * @param source
 	 * @param sourceSize the exact number of bytes which can be read from source 
-	 * @return
+	 * @return the condensed version of the input
 	 * @throws IOException when source throws an IOException
 	 * @throws IllegalArgumentException if sourceSize happens not to be the same as source's size
 	 */
