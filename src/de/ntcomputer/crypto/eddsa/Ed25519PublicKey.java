@@ -60,7 +60,7 @@ public class Ed25519PublicKey {
 		try {
 			signatureBytes = Utils.hexToBytes(signature);
 		} catch(Exception e) {
-			throw new SignatureException("the supplied signature is not a valid signature", e);
+			throw new SignatureException("the supplied signature has an invalid format", e);
 		}
 		EdDSAEngine engine = new EdDSAEngine();
 		try {
