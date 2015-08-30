@@ -3,12 +3,15 @@ package de.ntcomputer.crypto.hash;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 public class HashCondenser {
 	public static final int DEFAULT_OUTPUT_SIZE = 512*1024;
+	private static final int LONG_SIZE = Long.SIZE/8;
 	private final MessageDigest digest;
 	private final int outputSize;
 	private final int digestLength;
@@ -36,7 +39,7 @@ public class HashCondenser {
 		digestLength = md.getDigestLength();
 		if(digestLength==0) throw new IllegalArgumentException("could not determine message digest length (returned 0)");
 		if(this.outputSize < this.digestLength) throw new IllegalArgumentException("output size is less than message digest length");
-		this.hashCount = this.outputSize / digestLength;
+		this.hashCount = (this.outputSize - LONG_SIZE) / digestLength;
 	}
 	
 	/**
@@ -66,25 +69,33 @@ public class HashCondenser {
 	 * @throws IOException when source throws an IOException
 	 * @throws IllegalArgumentException if sourceSize happens not to be the same as source's size
 	 */
-	public byte[] compute(InputStream source, long sourceSize) throws IOException, IllegalArgumentException {
+	public byte[] compute(InputStream source, long sourceSize) throws IOException, IllegalArgumentException {		
 		// create result buffer
 		byte[] result = new byte[this.outputSize];
 		Arrays.fill(result, (byte) 0x00);
 		
-		if(sourceSize <= this.outputSize) {
+		if(sourceSize <= this.outputSize-LONG_SIZE) {
 			// copy source directly if short enough
+			
+			// add file size + negative sign as direct mode indicator
+			ByteBuffer.wrap(result).order(ByteOrder.BIG_ENDIAN).putLong(-sourceSize);
+			
 			int readSourceSize = 0;
 			int readLength;
-			while((readLength = source.read(result, readSourceSize, (int) (sourceSize-readSourceSize))) != -1) {
+			while((readLength = source.read(result, LONG_SIZE+readSourceSize, (int) (sourceSize-readSourceSize))) != -1) {
 				readSourceSize+= readLength;
 				if(readLength==0) {
 					if(source.read() != -1) readSourceSize++;
 					break;
 				}
 			}
-			if(readSourceSize != sourceSize) throw new IllegalArgumentException("read not as many bytes as sourceSize originally provided. Maybe the resource changed?"); 
+			if(readSourceSize != sourceSize) throw new IllegalArgumentException("read not as many bytes as sourceSize originally provided. Maybe the resource changed?");
+			
 		} else {
 			// otherwise, hash segments
+			
+			// add file size + positive sign as compressed mode indicator
+			ByteBuffer.wrap(result).order(ByteOrder.BIG_ENDIAN).putLong(sourceSize);
 			
 			// calculate segment size (input size for each hash)
 			// if necessary, start hashing 1 byte more which will later be dropped so we hash exactly sourceSize bytes 
@@ -101,7 +112,7 @@ public class HashCondenser {
 			long previouslyReadSegmentSize = 0;
 			int readLength = 0;
 			int segmentIndex = 0;
-			int resultIndex = 0;
+			int resultIndex = LONG_SIZE;
 			
 			// read all input
 			while((readLength = source.read(buf)) != -1) {
