@@ -88,7 +88,7 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * @throws IllegalArgumentException if password is null
 	 * @throws NoSuchAlgorithmException if either of the encryption algorithms is not present on this machine
 	 * @throws NoSuchPaddingException if the PKCS5 padding is not present on this machine
-	 * @throws InvalidKeyException if the passed privatKeyString has an invalid format
+	 * @throws InvalidKeyException if the key file has an invalid format
 	 */
 	public static Ed25519PrivateKey loadFromFile(File privateKeyFile, char[] password) throws IllegalArgumentException, IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException {
 		String key = new String(Files.readAllBytes(privateKeyFile.toPath()), StandardCharsets.UTF_8);
@@ -306,7 +306,7 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * 
 	 * @see #signToFile(File, File)
 	 * @param source
-	 * @throws IOException if an IO error occurs while reading the file
+	 * @throws IOException if an IO error occurs while reading or writing a file
 	 * @throws IllegalArgumentException if the file's size changes during computation
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 */
@@ -320,7 +320,7 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * @see #sign(File)
 	 * @param source
 	 * @param signatureFile the file to write the signature to
-	 * @throws IOException if an IO error occurs while reading the file
+	 * @throws IOException if an IO error occurs while reading or writing a file
 	 * @throws IllegalArgumentException if the file's size changes during computation
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 */
