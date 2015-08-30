@@ -1,6 +1,44 @@
 ed25519-java
 ============
 
+This is a fork of str4d's implementation of EdDSA in Java. You can find the original project's description below.
+
+This fork provides easy-to-use wrapper classes, which, while using non-standard formats, make it very easy to generate key pairs and use them to sign and verify data.
+The implementation uses SHA-512 for any hash operations, PBKDF2 with a 512-bit salt and 1 million iterations to derive secret keys from passwords, and AES-256-CBC-PKCS5 for private key encryption.
+Any input data will be reduced to a constant-size (512 KiB) array by hashing segments to avoid the necessity of caching large amounts of data when signing / verifying large files.
+
+Examples
+--------
+
+First, you may want to generate a key pair. Use
+
+`Ed25519PrivateKey myPrivateKey = Ed25519PrivateKey.generate();`
+
+to create a new private key. You can use
+
+`Ed25519PublicKey myPublicKey = myPrivateKey.derivePublicKey();`
+
+to fetch your public key from the private key.
+
+Next, you may wish to sign something, using your private key. For instance a file:
+
+`String signature = myPrivateKey.sign(myFile);`
+
+Or, if you want to store the signature directly into another file, use
+
+`myPrivateKey.signToFile(myFile,mySignatureFile);`
+
+At some point, you may wish to verify the signature of a file. Use your public key:
+
+`boolean isSignatureValid = myPublicKey.verifyFromFile(myFile, mySignatureFile);`
+
+Of course it doesn't make much sense if the keys can be kept in memory only. Save them to disk using their `saveAsFile(...)` methods, and restore them using their static `loadFromFile(...)` methods. You have to supply a password to store your private key, which will be used for strong encryption. Keep your private key, and distribute your public key.
+
+
+
+ed25519-java (original)
+=======================
+
 This is an implementation of EdDSA in Java. Structurally, it is based on the ref10 implementation in SUPERCOP (see http://ed25519.cr.yp.to/software.html).
 
 There are two internal implementations:
