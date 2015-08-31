@@ -22,15 +22,15 @@ to fetch your public key from the private key.
 
 Next, you may wish to sign something, using your private key. For instance a file:
 
-`String signature = myPrivateKey.sign(myFile);`
+`String signature = myPrivateKey.sign(myFile, null);`
 
 Or, if you want to store the signature directly into another file, use
 
-`myPrivateKey.signToFile(myFile,mySignatureFile);`
+`myPrivateKey.signToFile(myFile, mySignatureFile, null);`
 
 At some point, you may wish to verify the signature of a file. Use your public key:
 
-`boolean isSignatureValid = myPublicKey.verifyFromFile(myFile, mySignatureFile);`
+`boolean isSignatureValid = myPublicKey.verifyFromFile(myFile, mySignatureFile, null);`
 
 Of course it doesn't make much sense if the keys can be kept in memory only. Save them to disk using their `saveAsFile(...)` methods, and restore them using their static `loadFromFile(...)` methods. You have to supply a password to store your private key, which will be used for strong encryption. Keep your private key, and distribute your public key.
 
