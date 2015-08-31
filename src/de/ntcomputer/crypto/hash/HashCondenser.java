@@ -9,6 +9,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
+import net.i2p.crypto.eddsa.Utils;
+
 /**
  * A class which packs any byte input stream or array into a fixed-size output byte array using a {@link MessageDigest}.
  * This is useful when there is a need to sign or verify large files with a signature scheme that requires caching the input data (such as Ed25519).
@@ -21,6 +23,7 @@ public class HashCondenser {
 	public static final int DEFAULT_OUTPUT_SIZE = 512*1024;
 	private static final int LONG_SIZE = Long.SIZE/8;
 	private final MessageDigest digest;
+	private final MessageDigest segmentDigest;
 	private final int outputSize;
 	private final int digestLength;
 	private final int hashCount;
@@ -32,9 +35,14 @@ public class HashCondenser {
 	 * @param outputSize the size (in bytes) any input should be condensed to. Has to be greater than at least one digest length + 8.
 	 * @return
 	 * @throws IllegalArgumentException when the parameter conditions are not met
+	 * @throws CloneNotSupportedException if the MessageDigest can't be cloned
 	 */
-	public static HashCondenser getInstance(MessageDigest md, int outputSize) throws IllegalArgumentException {
-		return new HashCondenser(md, outputSize);
+	public static HashCondenser getInstance(MessageDigest md, int outputSize) throws IllegalArgumentException, CloneNotSupportedException {
+		MessageDigest md1 = (MessageDigest) md.clone();
+		MessageDigest md2 = (MessageDigest) md.clone();
+		md1.reset();
+		md2.reset();
+		return new HashCondenser(md1, md2, outputSize);
 	}
 	
 	/**
@@ -46,7 +54,7 @@ public class HashCondenser {
 	 * @throws NoSuchAlgorithmException when SHA-512 is not present on this machine
 	 */
 	public static HashCondenser getInstance(int outputSize) throws IllegalArgumentException, NoSuchAlgorithmException {
-		return new HashCondenser(MessageDigest.getInstance("SHA-512"), outputSize);
+		return new HashCondenser(MessageDigest.getInstance("SHA-512"), MessageDigest.getInstance("SHA-512"), outputSize);
 	}
 	
 	/**
@@ -55,9 +63,14 @@ public class HashCondenser {
 	 * @param md a MessageDigest. Must support {@link MessageDigest#getDigestLength()}.
 	 * @return
 	 * @throws IllegalArgumentException when the parameter conditions are not met
+	 * @throws CloneNotSupportedException if the MessageDigest can't be cloned
 	 */
-	public static HashCondenser getInstance(MessageDigest md) throws IllegalArgumentException{
-		return new HashCondenser(md, DEFAULT_OUTPUT_SIZE);
+	public static HashCondenser getInstance(MessageDigest md) throws IllegalArgumentException, CloneNotSupportedException{
+		MessageDigest md1 = (MessageDigest) md.clone();
+		MessageDigest md2 = (MessageDigest) md.clone();
+		md1.reset();
+		md2.reset();
+		return new HashCondenser(md1, md2, DEFAULT_OUTPUT_SIZE);
 	}
 	
 	/**
@@ -67,16 +80,17 @@ public class HashCondenser {
 	 * @throws NoSuchAlgorithmException when SHA-512 is not present on this machine
 	 */
 	public static HashCondenser getInstance() throws NoSuchAlgorithmException {
-		return new HashCondenser(MessageDigest.getInstance("SHA-512"), DEFAULT_OUTPUT_SIZE);
+		return new HashCondenser(MessageDigest.getInstance("SHA-512"), MessageDigest.getInstance("SHA-512"), DEFAULT_OUTPUT_SIZE);
 	}
 	
-	private HashCondenser(MessageDigest md, int outputSize) {
+	private HashCondenser(MessageDigest md, MessageDigest md2, int outputSize) {
 		this.digest = md;
+		this.segmentDigest = md2;
 		this.outputSize = outputSize;
-		digestLength = md.getDigestLength();
+		this.digestLength = md.getDigestLength();
 		if(digestLength==0) throw new IllegalArgumentException("could not determine message digest length (returned 0)");
-		if(this.outputSize < LONG_SIZE + this.digestLength) throw new IllegalArgumentException("output size is less than message digest length + overhead for one long value");
-		this.hashCount = (this.outputSize - LONG_SIZE) / digestLength;
+		if(this.outputSize < LONG_SIZE + this.digestLength*2) throw new IllegalArgumentException("output size is less than message digest length * 2 + overhead for one long value");
+		this.hashCount = (this.outputSize - LONG_SIZE - digestLength) / digestLength;
 	}
 	
 	/**
@@ -112,25 +126,31 @@ public class HashCondenser {
 		byte[] result = new byte[this.outputSize];
 		Arrays.fill(result, (byte) 0x00);
 		
-		if(sourceSize <= this.outputSize-LONG_SIZE) {
+		this.digest.reset();
+		
+		if(sourceSize <= this.outputSize-LONG_SIZE-digestLength) {
 			// copy source directly if short enough
 			
 			// add file size + negative sign as direct mode indicator
 			ByteBuffer.wrap(result).order(ByteOrder.BIG_ENDIAN).putLong(-sourceSize);
 			
+			int destOffset = LONG_SIZE+digestLength;
 			int readSourceSize = 0;
 			int readLength;
-			while((readLength = source.read(result, LONG_SIZE+readSourceSize, (int) (sourceSize-readSourceSize))) != -1) {
+			while((readLength = source.read(result, destOffset+readSourceSize, (int) (sourceSize-readSourceSize))) != -1) {
+				digest.update(result, destOffset+readSourceSize, readLength);
 				readSourceSize+= readLength;
 				if(readLength==0) {
 					if(source.read() != -1) readSourceSize++;
 					break;
 				}
+				
 			}
 			if(readSourceSize != sourceSize) throw new IllegalArgumentException("read not as many bytes as sourceSize originally provided. Maybe the resource changed?");
 			
 		} else {
 			// otherwise, hash segments
+			this.segmentDigest.reset();
 			
 			// add file size + positive sign as compressed mode indicator
 			ByteBuffer.wrap(result).order(ByteOrder.BIG_ENDIAN).putLong(sourceSize);
@@ -141,22 +161,22 @@ public class HashCondenser {
 			int overflowSegmentCount = (int) (sourceSize - segmentSize*hashCount);
 			if(overflowSegmentCount > 0) segmentSize++;
 			
-			// allocate buffer. Not too large.
-			int bufCapacity = (int) Math.min(1024L, segmentSize);
-			byte[] buf = new byte[bufCapacity];
+			// allocate buffer.
+			byte[] buf = new byte[16384];
 			
 			// prepare indices
 			long readSourceSize = 0;
 			long previouslyReadSegmentSize = 0;
 			int readLength = 0;
 			int segmentIndex = 0;
-			int resultIndex = LONG_SIZE;
+			int resultIndex = LONG_SIZE + digestLength;
 			
 			// read all input
 			while((readLength = source.read(buf)) != -1) {
 				readSourceSize+= readLength;
 				if(readSourceSize > sourceSize) throw new IllegalArgumentException("read more bytes than sourceSize originally provided. Maybe the resource changed?");
 				int readIndex = 0;
+				digest.update(buf, readIndex, readLength);
 				
 				// if enough bytes for one hash have been accumulated then calculate the digest now
 				while(previouslyReadSegmentSize + readLength >= segmentSize) {
@@ -164,8 +184,8 @@ public class HashCondenser {
 					int limit = (int) (segmentSize - previouslyReadSegmentSize);
 					
 					// calculate digest 
-					this.digest.update(buf, readIndex, limit);
-					System.arraycopy(this.digest.digest(), 0, result, resultIndex, digestLength);
+					this.segmentDigest.update(buf, readIndex, limit);
+					System.arraycopy(this.segmentDigest.digest(), 0, result, resultIndex, digestLength);
 					resultIndex+= digestLength;
 					
 					// drop the additional byte from the segmentSize if enough overflowing segments have been processed
@@ -175,11 +195,12 @@ public class HashCondenser {
 					// mark the bytes as read
 					previouslyReadSegmentSize = 0;
 					readLength-= limit;
+					readIndex+= limit;
 				}
 				
 				// if not enough bytes for one hash(segment) have been accumulated, just update
 				if(readLength > 0) {
-					this.digest.update(buf, readIndex, readLength);
+					this.segmentDigest.update(buf, readIndex, readLength);
 					previouslyReadSegmentSize+= readLength;
 				}
 			}
@@ -187,6 +208,11 @@ public class HashCondenser {
 			if(readSourceSize != sourceSize) throw new IllegalArgumentException("read not as many bytes as sourceSize originally provided. Maybe the resource changed?");
 			
 		}
+		
+		// put one digest over the whole stream into the result
+		System.arraycopy(this.digest.digest(), 0, result, LONG_SIZE, digestLength);
+		
+		System.out.println(Utils.bytesToHex(result));
 		
 		return result;
 	}
