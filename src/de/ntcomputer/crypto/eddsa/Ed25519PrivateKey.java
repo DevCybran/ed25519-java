@@ -26,8 +26,6 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.security.auth.DestroyFailedException;
-import javax.security.auth.Destroyable;
 
 import de.ntcomputer.crypto.hash.HashCondenser;
 import de.ntcomputer.crypto.hash.ProgressListener;
@@ -49,7 +47,7 @@ import net.i2p.crypto.eddsa.spec.EdDSAPublicKeySpec;
  * @author DevCybran
  *
  */
-public class Ed25519PrivateKey implements Destroyable {
+public class Ed25519PrivateKey {
 	static final EdDSAParameterSpec P_SPEC = EdDSANamedCurveTable.getByName(EdDSANamedCurveTable.CURVE_ED25519_SHA512);
 	private static SecureRandom random = null;
 	private final EdDSAPrivateKey key;
@@ -134,11 +132,6 @@ public class Ed25519PrivateKey implements Destroyable {
 			throw new RuntimeException(e);
 		} catch (BadPaddingException e) {
 			throw new InvalidKeyException("the supplied private key is corrupted or the password is wrong", e);
-		} finally {
-			try {
-				key.destroy();
-			} catch (DestroyFailedException e) {
-			}
 		}
 	}
 	
@@ -211,11 +204,6 @@ public class Ed25519PrivateKey implements Destroyable {
 			return Utils.bytesToHex(salt) + Utils.bytesToHex(iv) + Utils.bytesToHex(encryptedKey);
 		} catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException | InvalidAlgorithmParameterException e) {
 			throw new RuntimeException(e);
-		} finally {
-			try {
-				key.destroy();
-			} catch (DestroyFailedException e) {
-			}
 		}
 	}
 	
@@ -332,16 +320,6 @@ public class Ed25519PrivateKey implements Destroyable {
 	public void signToFile(File source, File signatureFile, ProgressListener listener) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
 		String signature = this.sign(source, listener);
 		Files.write(signatureFile.toPath(), signature.getBytes(StandardCharsets.UTF_8));
-	}
-
-	@Override
-	public void destroy() throws DestroyFailedException {
-		this.key.destroy();
-	}
-
-	@Override
-	public boolean isDestroyed() {
-		return this.key.isDestroyed();
 	}
 
 }
