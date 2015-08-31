@@ -30,6 +30,7 @@ import javax.security.auth.DestroyFailedException;
 import javax.security.auth.Destroyable;
 
 import de.ntcomputer.crypto.hash.HashCondenser;
+import de.ntcomputer.crypto.hash.ProgressListener;
 import net.i2p.crypto.eddsa.EdDSAEngine;
 import net.i2p.crypto.eddsa.EdDSAPrivateKey;
 import net.i2p.crypto.eddsa.EdDSAPublicKey;
@@ -252,7 +253,7 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 */
 	public String sign(byte[] data) throws NoSuchAlgorithmException {
-		return signLow(HashCondenser.getInstance().compute(data));
+		return signLow(HashCondenser.getInstance().compute(data, null));
 	}
 	
 	/**
@@ -273,13 +274,14 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * 
 	 * @param source the data source
 	 * @param sourceSize the exact size of all data which will pass through the InputStream
+	 * @param listener a progress listener. Optional, may be null.
 	 * @return a hexadecimal representation of the signature
 	 * @throws IllegalArgumentException if sourceSize is not the correct size
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 * @throws IOException if an IO error occurs while reading the stream
 	 */
-	public String sign(InputStream source, long sourceSize) throws IllegalArgumentException, NoSuchAlgorithmException, IOException {
-		return signLow(HashCondenser.getInstance().compute(source, sourceSize));
+	public String sign(InputStream source, long sourceSize, ProgressListener listener) throws IllegalArgumentException, NoSuchAlgorithmException, IOException {
+		return signLow(HashCondenser.getInstance().compute(source, sourceSize, listener));
 	}
 	
 	/**
@@ -287,16 +289,17 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * 
 	 * @see #sign(InputStream, long)
 	 * @param source
+	 * @param listener a progress listener. Optional, may be null.
 	 * @return a hexadecimal representation of the signature
 	 * @throws IOException if an IO error occurs while reading the file
 	 * @throws IllegalArgumentException if the file's size changes during computation
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 */
-	public String sign(File source) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
+	public String sign(File source, ProgressListener listener) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
 		if(!source.isFile()) throw new FileNotFoundException(source.getAbsolutePath());
 		long fileSize = source.length();
 		try(InputStream is = new FileInputStream(source)) {
-			return this.sign(is, fileSize);
+			return this.sign(is, fileSize, listener);
 		}
 	}
 	
@@ -306,12 +309,13 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * 
 	 * @see #signToFile(File, File)
 	 * @param source
+	 * @param listener a progress listener. Optional, may be null.
 	 * @throws IOException if an IO error occurs while reading or writing a file
 	 * @throws IllegalArgumentException if the file's size changes during computation
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 */
-	public void signToFile(File source) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
-		this.signToFile(source, new File(source, ".sig"));
+	public void signToFile(File source, ProgressListener listener) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
+		this.signToFile(source, new File(source, ".sig"), listener);
 	}
 	
 	/**
@@ -320,12 +324,13 @@ public class Ed25519PrivateKey implements Destroyable {
 	 * @see #sign(File)
 	 * @param source
 	 * @param signatureFile the file to write the signature to
+	 * @param listener a progress listener. Optional, may be null.
 	 * @throws IOException if an IO error occurs while reading or writing a file
 	 * @throws IllegalArgumentException if the file's size changes during computation
 	 * @throws NoSuchAlgorithmException if the hash algorithm is not present on this machine
 	 */
-	public void signToFile(File source, File signatureFile) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
-		String signature = this.sign(source);
+	public void signToFile(File source, File signatureFile, ProgressListener listener) throws IOException, IllegalArgumentException, NoSuchAlgorithmException {
+		String signature = this.sign(source, listener);
 		Files.write(signatureFile.toPath(), signature.getBytes(StandardCharsets.UTF_8));
 	}
 

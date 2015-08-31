@@ -32,27 +32,27 @@ public class Ed25519Test {
     		
     		URL testSignDataURL = HashCondenserTest.class.getResource("randomdata.bin");
         	File testSignDataFile = new File(testSignDataURL.toURI());
-        	String signature = privateKey.sign(testSignDataFile);
+        	String signature = privateKey.sign(testSignDataFile, null);
         	
-        	boolean verifyResult = publicKey.verify(testSignDataFile, signature);
+        	boolean verifyResult = publicKey.verify(testSignDataFile, signature, null);
     		assertThat("Ed25519 signature verification failure", verifyResult, is(true));
     		
     		char[] password = new BigInteger(130, random).toString(32).toCharArray();
     		privateKey.saveAsFile(privateKeyFile, password);
     		privateKey = Ed25519PrivateKey.loadFromFile(privateKeyFile, password);
     		
-    		String signature2 = privateKey.sign(testSignDataFile);
+    		String signature2 = privateKey.sign(testSignDataFile, null);
     		assertThat("Ed25519 signature regeneration failure", signature2, is(equalTo(signature)));
     		
     		publicKey.saveAsFile(publicKeyFile);
     		publicKey = Ed25519PublicKey.loadFromFile(publicKeyFile);
     		
-    		verifyResult = publicKey.verify(testSignDataFile, signature);
+    		verifyResult = publicKey.verify(testSignDataFile, signature, null);
     		assertThat("Ed25519 signature reverification failure", verifyResult, is(true));
     		
     		exception.expect(SignatureException.class);
             exception.expectMessage("signature length is wrong");
-    		publicKey.verify(testSignDataFile, "");
+    		publicKey.verify(testSignDataFile, "", null);
     		
     	} finally {
     		privateKeyFile.delete();

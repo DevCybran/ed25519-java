@@ -9,8 +9,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-import net.i2p.crypto.eddsa.Utils;
-
 /**
  * A class which packs any byte input stream or array into a fixed-size output byte array using a {@link MessageDigest}.
  * This is useful when there is a need to sign or verify large files with a signature scheme that requires caching the input data (such as Ed25519).
@@ -98,11 +96,12 @@ public class HashCondenser {
 	 * 
 	 * @see #compute(InputStream, long)
 	 * @param data
+	 * @param listener a progress listener. Optional, may be null.
 	 * @return the condensed version of the input
 	 */
-	public byte[] compute(byte[] data) {
+	public byte[] compute(byte[] data, ProgressListener listener) {
 		try {
-			return this.compute(new ByteArrayInputStream(data), data.length);
+			return this.compute(new ByteArrayInputStream(data), data.length, listener);
 		} catch (IOException e) {
 			// IOException should never happen for cached byte stream
 			throw new RuntimeException(e);
@@ -116,12 +115,15 @@ public class HashCondenser {
 	 * Every result contains the original sourceSize and a operation mode indicator.
 	 * 
 	 * @param source
-	 * @param sourceSize the exact number of bytes which can be read from source 
+	 * @param sourceSize the exact number of bytes which can be read from source
+	 * @param listener a progress listener. Optional, may be null.
 	 * @return the condensed version of the input
 	 * @throws IOException when source throws an IOException
 	 * @throws IllegalArgumentException if sourceSize happens not to be the same as source's size
 	 */
-	public byte[] compute(InputStream source, long sourceSize) throws IOException, IllegalArgumentException {		
+	public byte[] compute(InputStream source, long sourceSize, ProgressListener listener) throws IOException, IllegalArgumentException {
+		if(listener!=null) listener.onProgress(0, sourceSize);
+		
 		// create result buffer
 		byte[] result = new byte[this.outputSize];
 		Arrays.fill(result, (byte) 0x00);
@@ -151,6 +153,7 @@ public class HashCondenser {
 		} else {
 			// otherwise, hash segments
 			this.segmentDigest.reset();
+			long lastProgressUpdateTime = System.currentTimeMillis();
 			
 			// add file size + positive sign as compressed mode indicator
 			ByteBuffer.wrap(result).order(ByteOrder.BIG_ENDIAN).putLong(sourceSize);
@@ -203,6 +206,15 @@ public class HashCondenser {
 					this.segmentDigest.update(buf, readIndex, readLength);
 					previouslyReadSegmentSize+= readLength;
 				}
+				
+				if(listener!=null) {
+					long currentTime = System.currentTimeMillis();
+					if(currentTime > lastProgressUpdateTime + 100) {
+						lastProgressUpdateTime = currentTime;
+						listener.onProgress(readSourceSize, sourceSize);
+					}
+				}
+				
 			}
 			
 			if(readSourceSize != sourceSize) throw new IllegalArgumentException("read not as many bytes as sourceSize originally provided. Maybe the resource changed?");
@@ -212,7 +224,7 @@ public class HashCondenser {
 		// put one digest over the whole stream into the result
 		System.arraycopy(this.digest.digest(), 0, result, LONG_SIZE, digestLength);
 		
-		System.out.println(Utils.bytesToHex(result));
+		if(listener!=null) listener.onProgress(sourceSize, sourceSize);
 		
 		return result;
 	}

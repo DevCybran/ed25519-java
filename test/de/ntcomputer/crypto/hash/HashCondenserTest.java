@@ -36,7 +36,7 @@ public class HashCondenserTest {
     	// run hash condenser
     	HashCondenser cond = HashCondenser.getInstance(131);
     	try (InputStream is = new FileInputStream(file)) {
-    		byte[] result = cond.compute(is, fileSize);
+    		byte[] result = cond.compute(is, fileSize, null);
     		assertThat("HashCondenser failed to produce correct result", result, is(equalTo(expectedBin)));
     	}
     }
